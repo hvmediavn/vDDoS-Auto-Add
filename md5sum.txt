@@ -1,5 +1,6 @@
 9b4ddf52a80e710810282972a8ca9419  cron.sh
 ca71a8a1d64f20656ed541a167af7da1  md5sum.txt
 3aa3720b01502a4c782395bbbfc7acf0  README.md
-14188fb0ad877d93d776417cee6c0f90  setting.conf
-07013632ffcd4d77e97695f0c952020b  vddos-add.sh
+ffb72a0cd766f49ce9fa343c427673c9  setting.conf
+735306fbe425af34c0f4c263906f98dc  vddos-add.sh
+b6f606c88443a05d077bc9cf7fe54003  vddos-autoadd.sh

@@ -7,17 +7,18 @@
 # vddos-add Website="your-domain.com" Cache="no" Security="no" HTTP_Listen="http://0.0.0.0:80" HTTPS_Listen="https://0.0.0.0:443" HTTP_Backend="http://127.0.0.1:8080" HTTPS_Backend="https://127.0.0.1:8443"
 
 if [ ! -f /usr/bin/vddos-autoadd ] || [ ! -f /usr/bin/vddos-add ]; then
-chmod 700 /vddos/auto-add/cron.sh
-ln -s /vddos/auto-add/cron.sh /usr/bin/vddos-autoadd
-chmod 700 /vddos/auto-add/vddos-add.sh
-ln -s /vddos/auto-add/vddos-add.sh /usr/bin/vddos-add
+chmod 700 /vddos/auto-add/*.sh  >/dev/null 2>&1
+ln -s /vddos/auto-add/vddos-autoadd.sh /usr/bin/vddos-autoadd  >/dev/null 2>&1
+ln -s /vddos/auto-add/vddos-add.sh /usr/bin/vddos-add  >/dev/null 2>&1
 fi
+
+
 
 if [ ! -f /vddos/conf.d/website.conf ]; then
 echo 'ERROR!
 
 /vddos/conf.d/website.conf not found! 
-Please Install vDDoS Proxy Protection!'|tee -a /vddos/auto-add/log.txt
+Please Install UpShield Firewall!'|tee -a /vddos/auto-add/log.txt
 exit 0
 fi
 if [ ! -d /letsencrypt ] || [ ! -d /vddos/ssl ]; then
@@ -44,8 +45,11 @@ if [ "$Issetting" = "" ]; then
 	HTTP_Listen=`awk -F: '/^HTTP_Listen/' /vddos/auto-add/setting.conf | awk 'NR==1 {print $2}'`  ; 
 	HTTPS_Listen=`awk -F: '/^HTTPS_Listen/' /vddos/auto-add/setting.conf | awk 'NR==1 {print $2}'`  ; 
 	HTTP_Backend=`awk -F: '/^HTTP_Backend/' /vddos/auto-add/setting.conf | awk 'NR==1 {print $2}'`  ; 
-	HTTPS_Backend=`awk -F: '/^HTTPS_Backend/' /vddos/auto-add/setting.conf | awk 'NR==1 {print $2}'`  ; 
+	HTTPS_Backend=`awk -F: '/^HTTPS_Backend/' /vddos/auto-add/setting.conf | awk 'NR==1 {print $2}'`  ;
 fi
+SSLmode=`awk -F: '/^SSL/' /vddos/auto-add/setting.conf | awk 'NR==1 {print $2}'`  ;
+DNS_sleep=`awk -F: '/^DNS_sleep/' /vddos/auto-add/setting.conf | awk 'NR==1 {print $2}'`  ;
+DNS_alias_mode=`awk -F: '/^DNS_alias_mode/' /vddos/auto-add/setting.conf | awk 'NR==1 {print $2}'`  ;
 
 function showerror()
 {
@@ -61,7 +65,7 @@ HTTPS_Backend is ['$HTTPS_Backend'] ...
 
 # Please put a value in the file /vddos/auto-add/setting.conf
 # Example:
-SSL				Auto
+SSL				auto
 Cache			no
 Security		no
 HTTP_Listen		http://0.0.0.0:80
@@ -93,6 +97,12 @@ fi
 echo "
 		[[[[[[[ `date` ]]]]]]]
 " >> /vddos/auto-add/log.txt
+if [ "$SSLmode" = "Auto" ]; then
+	SSLmode=auto
+fi
+
+if [ "$SSLmode" = "auto" ]; then
+
 
 # Request FOR non-www
 
@@ -109,8 +119,8 @@ if [ "$Available" = "" ]; then
 	randomcheckwww=`curl -s -L http://www.$Website/.well-known/acme-challenge/$Website.txt`
 	rm -f /vddos/letsencrypt/.well-known/acme-challenge/$Website.txt
 	if [ "$randomchecknonwww" = "$random" ]; then
-		mkdir -p /letsencrypt/
-		/root/.acme.sh/acme.sh --issue -d $Website -w /vddos/letsencrypt --keylength ec-256 --key-file /letsencrypt/$Website.pri --fullchain-file /letsencrypt/$Website.crt  >>/vddos/auto-add/log.txt 2>&1
+		#mkdir -p /letsencrypt/
+		/root/.acme.sh/acme.sh --debug --issue -d $Website -w /vddos/letsencrypt --keylength ec-256 --key-file /letsencrypt/$Website.pri --fullchain-file /letsencrypt/$Website.crt  >>/vddos/auto-add/log.txt 2>&1
 		if [ -f /letsencrypt/"$Website".crt ]; then
 			ln -s /letsencrypt/$Website.crt /vddos/ssl/$Website.crt 
 			ln -s /letsencrypt/$Website.pri /vddos/ssl/$Website.pri 
@@ -123,7 +133,7 @@ if [ "$Available" = "" ]; then
 	fi
 
 	if [ "$randomchecknonwww" != "$random" ] || [ ! -f /vddos/ssl/"$Website".crt ]; then
-		openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout /vddos/ssl/$Website.pri -out /vddos/ssl/$Website.crt -subj "/C=US/ST=$Website/L=$Website/O=$Website/OU=vddos.voduy.com/CN=$Website" >>/vddos/auto-add/log.txt 2>&1
+		openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout /vddos/ssl/$Website.pri -out /vddos/ssl/$Website.crt -subj "/C=US/ST=$Website/L=$Website/O=$Website/OU=vddos/CN=$Website" >>/vddos/auto-add/log.txt 2>&1
 		chmod -R 750 /vddos/ssl/$Website.*
 	fi
 
@@ -149,7 +159,7 @@ if [ "$Available" != "" ]; then
 fi
 if [ "$Available" = "" ]; then
 	if [ "$randomcheckwww" = "$random" ]; then
-		/root/.acme.sh/acme.sh --issue -d www.$Website -w /vddos/letsencrypt --keylength ec-256 --key-file /letsencrypt/www.$Website.pri --fullchain-file /letsencrypt/www.$Website.crt  >>/vddos/auto-add/log.txt 2>&1
+		/root/.acme.sh/acme.sh --debug --issue -d www.$Website -w /vddos/letsencrypt --keylength ec-256 --key-file /letsencrypt/www.$Website.pri --fullchain-file /letsencrypt/www.$Website.crt  >>/vddos/auto-add/log.txt 2>&1
 		if [ -f /letsencrypt/www."$Website".crt ]; then
 			ln -s /letsencrypt/www.$Website.crt /vddos/ssl/www.$Website.crt 
 			ln -s /letsencrypt/www.$Website.pri /vddos/ssl/www.$Website.pri 
@@ -176,3 +186,75 @@ www.$Website $HTTPS_Listen $HTTPS_Backend $Cache $Security /vddos/ssl/www.$Websi
 	fi
 fi
 
+fi
+
+
+
+######## SSL DNS API MODE
+
+if [ "$SSLmode" != "auto" ] && [ "$DNS_alias_mode" = "no" ]; then
+
+/root/.acme.sh/acme.sh --debug --dnssleep $DNS_sleep --issue --dns $SSLmode -d $Website -d *.$Website --keylength ec-256 --key-file /letsencrypt/$Website.pri --fullchain-file /letsencrypt/$Website.crt  >>/vddos/auto-add/log.txt 2>&1
+if [ -f /letsencrypt/"$Website".crt ]; then
+	ln -s /letsencrypt/$Website.crt /vddos/ssl/$Website.crt 
+	ln -s /letsencrypt/$Website.pri /vddos/ssl/$Website.pri 
+fi
+
+if [ ! -f /vddos/ssl/$Website.crt ] && [ -f /root/.acme.sh/"$Website"_ecc/fullchain.cer ]; then
+	ln -s /root/.acme.sh/"$Website"_ecc/fullchain.cer /vddos/ssl/$Website.crt 
+	ln -s /root/.acme.sh/"$Website"_ecc/"$Website".key /vddos/ssl/$Website.pri
+fi
+
+if [ ! -f /vddos/ssl/"$Website".crt ]; then
+	openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout /vddos/ssl/$Website.pri -out /vddos/ssl/$Website.crt -subj "/C=US/ST=$Website/L=$Website/O=$Website/OU=vddos/CN=$Website" >>/vddos/auto-add/log.txt 2>&1
+	chmod -R 750 /vddos/ssl/$Website.*
+fi
+
+
+	echo "
+$Website $HTTP_Listen $HTTP_Backend $Cache $Security no no
+$Website $HTTPS_Listen $HTTPS_Backend $Cache $Security /vddos/ssl/$Website.pri /vddos/ssl/$Website.crt
+" >> /vddos/conf.d/website.conf
+
+	echo '+ New-Success: '$Website' auto add to /vddos/conf.d/website.conf ===> Done!'|tee -a /vddos/auto-add/log.txt
+	sleep 1
+
+fi
+
+
+
+
+
+
+######## SSL DNS API ALIAS MODE
+
+
+
+if [ "$SSLmode" != "auto" ] && [ "$DNS_alias_mode" != "no" ]; then
+
+/root/.acme.sh/acme.sh --debug --dnssleep $DNS_sleep --issue --dns $SSLmode --challenge-alias $DNS_alias_mode -d $Website -d *.$Website --keylength ec-256 --key-file /letsencrypt/$Website.pri --fullchain-file /letsencrypt/$Website.crt  >>/vddos/auto-add/log.txt 2>&1
+if [ -f /letsencrypt/"$Website".crt ]; then
+	ln -s /letsencrypt/$Website.crt /vddos/ssl/$Website.crt 
+	ln -s /letsencrypt/$Website.pri /vddos/ssl/$Website.pri 
+fi
+
+if [ ! -f /vddos/ssl/$Website.crt ] && [ -f /root/.acme.sh/"$Website"_ecc/fullchain.cer ]; then
+	ln -s /root/.acme.sh/"$Website"_ecc/fullchain.cer /vddos/ssl/$Website.crt 
+	ln -s /root/.acme.sh/"$Website"_ecc/"$Website".key /vddos/ssl/$Website.pri
+fi
+
+if [ ! -f /vddos/ssl/"$Website".crt ]; then
+	openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout /vddos/ssl/$Website.pri -out /vddos/ssl/$Website.crt -subj "/C=US/ST=$Website/L=$Website/O=$Website/OU=vddos/CN=$Website" >>/vddos/auto-add/log.txt 2>&1
+	chmod -R 750 /vddos/ssl/$Website.*
+fi
+
+
+	echo "
+$Website $HTTP_Listen $HTTP_Backend $Cache $Security no no
+$Website $HTTPS_Listen $HTTPS_Backend $Cache $Security /vddos/ssl/$Website.pri /vddos/ssl/$Website.crt
+" >> /vddos/conf.d/website.conf
+
+	echo '+ New-Success: '$Website' auto add to /vddos/conf.d/website.conf ===> Done!'|tee -a /vddos/auto-add/log.txt
+	sleep 1
+
+fi
